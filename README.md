@@ -1,9 +1,9 @@
 # vsdd_testdrive
 
-A small Flutter app for test-driving the [VSDD kit](https://github.com/joecrowley/vsdd-kit)
-installation. **VSDD is deliberately not configured here:** there is no `openspec/`,
-no `AGENTS.md` and no AI-tool folders. That way the setup runbook takes its
-fresh-install path.
+A small, deliberately **bare** Flutter app for test-driving the
+[VSDD kit](https://github.com/joecrowley/vsdd-kit): OpenSpec plus Visual
+Spec-Driven Development. Neither is configured yet. There is no `openspec/`, no
+`AGENTS.md` and no AI-tool folders, so the installation takes its fresh-install path.
 
 ## The app
 
@@ -21,48 +21,50 @@ lib/
 test/                            # bloc_test for the Cubit, widget test for navigation
 ```
 
-There's enough structure for the agent to seed real diagrams: the module hierarchy
-(presentation → domain ← data), the end-to-end data flow (screen → Cubit → use case
-→ repository → API), the `ReadingListState` state machine, and the go_router routes.
-There is no backend or infrastructure code, so the "System Topology" diagram should be
-skipped.
-
 ```bash
-fvm flutter test
+fvm flutter test          # 4 tests
 fvm flutter run -d macos
 ```
 
-## Test-driving the installation
+## Next steps: add OpenSpec and VSDD
 
-1. Start from a clean tree. The baseline commit is `baseline: app without VSDD`.
-2. Open this folder in your AI coding tool and say:
+The full guide, including a worked example change, is
+**[docs/VSDD_WALKTHROUGH.md](docs/VSDD_WALKTHROUGH.md)**. In short:
+
+1. **Install the OpenSpec CLI** (≥ 1.2.0):
+
+   ```bash
+   npm install -g @fission-ai/openspec@latest
+   ```
+
+2. **Get the kit:**
+
+   ```bash
+   git clone git@github.com:joecrowley/vsdd-kit.git /Volumes/LacieStore/flutter/vsdd-kit
+   ```
+
+3. **Let your AI agent install it.** Open this folder in Claude Code, OpenCode, Qwen
+   Code or similar, and say:
+
    > Follow `/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md` to install VSDD into this project.
-3. Check the result:
 
-| Check | Expected |
-|---|---|
-| Step 0 | Detects a fresh install, and asks you to confirm the tools |
-| Step 1 | `openspec init` runs (there is no `openspec/` yet) |
-| Step 3 | `config.yaml` `context:` describes *this* app (reading list, Cubit, go_router), not placeholders |
-| Step 4 | `AGENTS.md` is **created**. `CLAUDE.md` is created only if you chose Claude Code |
-| Step 5 | `install_overlay.py --check` → `VSDD overlay OK.` |
-| Step 6 | `openspec/specs/architecture/diagrams.md` uses real names (`ReadingListCubit`, `GetReadingList`, `ApiBookRepository`, `BookApi`), and there is no topology diagram |
-| Step 8 | The smoke-test change is gone, and `python3 scripts/vsdd/validate_mermaid.py --render` passes |
-| Step 9 | The summary lists the decisions made and anything needing attention |
+   The agent runs the kit's
+   [`SETUP.md`](https://github.com/joecrowley/vsdd-kit/blob/main/SETUP.md). It
+   initialises OpenSpec, installs the `visual-driven` schema, writes the config and
+   `AGENTS.md`, patches the skills, seeds architecture diagrams from `lib/`, and
+   smoke-tests the result. It asks you only a few questions.
 
-Then try a real change, for example:
+4. **Check the install:** see [§4 of the walkthrough](docs/VSDD_WALKTHROUGH.md#4-check-what-was-installed).
 
-> /opsx:propose add a "notes" field to books, editable on the detail screen
+5. **Make your first visual change:** the walkthrough adds book notes end to end,
+   covering propose → diagrams review → apply (including a deliberate deviation) →
+   verify → archive. See [§5](docs/VSDD_WALKTHROUGH.md#5-walkthrough-a-change-that-needs-diagrams).
 
-The `diagrams.md` should record a YES gate. Its Before state should be copied
-verbatim from the seeded diagrams, and its After state should add the new flow.
-
-## Resetting for another run
+## Resetting
 
 ```bash
 git reset --hard baseline && git clean -fd
 ```
 
-This removes everything the installation added (`openspec/`, `AGENTS.md`, tool
-folders and scripts). Build caches are kept. The `baseline` tag marks the starting
-point.
+This returns the project to the bare app, tagged `baseline`, ready for another
+installation run.
