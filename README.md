@@ -49,7 +49,8 @@ The full guide, including a worked example change, is
    > Follow `/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md` to install VSDD into this project.
 
    The agent runs the kit's
-   [`SETUP.md`](https://github.com/joecrowley/vsdd-kit/blob/main/SETUP.md). It
+   [`SETUP.md`](https://github.com/joecrowley/vsdd-kit/blob/main/SETUP.md). It works
+   on a new `vsdd-install` branch and saves a snapshot first, so it can be undone. It
    initialises OpenSpec, installs the `visual-driven` schema, writes the config and
    `AGENTS.md`, patches the skills, seeds architecture diagrams from `lib/`, and
    smoke-tests the result. It asks you only a few questions.
@@ -62,9 +63,17 @@ The full guide, including a worked example change, is
 
 ## Resetting
 
+Ask your agent to follow "Roll back an install" in the kit's `SETUP.md`, or see
+[§8 of the walkthrough](docs/VSDD_WALKTHROUGH.md#8-reset-and-repeat). In short:
+switch back to `main`, restore the install snapshot, and delete the `vsdd-install`
+branch.
+
+For a quick reset of the project folder only (commit and push anything you want to
+keep first, since this discards uncommitted changes and unpushed commits on `main`):
+
 ```bash
-git reset --hard baseline && git clean -fd
+git switch main && git reset --hard origin/main && git clean -fd
 ```
 
-This returns the project to the bare app, tagged `baseline`, ready for another
-installation run.
+This returns the project to the bare app with the latest docs. It doesn't touch
+gitignored files or your global OpenSpec config.

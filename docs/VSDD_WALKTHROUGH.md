@@ -90,7 +90,7 @@ What each step should do **in this project**:
 
 | Step | Expected result here |
 |---|---|
-| 0 Preflight | Reports a **fresh install**: no `openspec/`, no tool folders, no earlier VSDD |
+| 0 Preflight | Reports a **fresh install**: no `openspec/`, no tool folders, no earlier VSDD. Then creates a `vsdd-install` branch and saves a snapshot under `~/.vsdd-snapshots/`, so the install can be rolled back (§8) |
 | 1 OpenSpec | Runs `openspec init --tools <your tools>`, creating `openspec/` and e.g. `.claude/skills`, `.claude/commands` |
 | 2 Files | Adds `openspec/schemas/visual-driven/`, `docs/VSDD.md`, `docs/MERMAID_RULES.md` and `scripts/vsdd/` |
 | 3 Config | Writes `openspec/config.yaml`. Its `context:` should describe **this** app: reading list, Cubit with sealed states, go_router, fake API. No `<PLACEHOLDER>` text |
@@ -167,9 +167,11 @@ infrastructure code. Search for a couple of the names (`grep -rn GetReadingList 
 If anything in the diagrams doesn't exist in the code, the baseline is wrong. Fix it
 before going on.
 
-Commit the installation so the change in §5 shows up as a clean diff:
+Commit the installation so the change in §5 shows up as a clean diff. You're on the
+`vsdd-install` branch the agent created, so `main` stays bare:
 
 ```bash
+git branch --show-current                            # vsdd-install
 git add -A && git commit -m "chore: install VSDD"
 ```
 
@@ -209,6 +211,13 @@ Expect something like this:
 
 YES - adds a notes update path through data, domain and presentation, and a new
 detail-screen interaction.
+
+## Placement
+
+| Stable name | Source of Truth file | Action |
+|---|---|---|
+| End-to-End Data Flow | specs/architecture/diagrams.md | update |
+| Notes Update Flow | specs/book-notes/diagrams.md | add |
 
 ## Before State
 
@@ -255,11 +264,13 @@ Review checklist:
 | Check | Why it matters |
 |---|---|
 | The gate is YES, with a reason | A NO here would skip the visual review of a real flow change |
-| The Before State is a **verbatim** copy of the Source of Truth section | It's the baseline reviewers compare against. Diff it against `openspec/specs/architecture/diagrams.md` |
+| There is a `## Placement` table with **one row per diagram** in Before/After | The archive merge applies these rows and nothing else. The validator fails if a row and a section don't match |
+| **New flows go in their capability's file** (`Notes Update Flow` → `specs/book-notes/diagrams.md`, action `add`) | A diagram belongs to the capability whose behaviour it shows. Only cross-cutting diagrams, such as the end-to-end data flow, stay in `specs/architecture/diagrams.md`. Agents often get this wrong, so check it |
+| The Before State is a **verbatim** copy of the Source of Truth section | It's the baseline reviewers compare against. The validator checks this, and the archive refuses to merge if the Source of Truth changed since |
 | The After State keeps the **same stable name** (`End-to-End Data Flow`) | The archive replaces sections by name. A renamed section would leave the old one orphaned |
-| The new diagram has a **new** stable name (`Notes Update Flow`) | It will be **appended** on archive |
+| The new diagram has a **new** stable name (`Notes Update Flow`) | It is added on archive, and the file is created if it doesn't exist yet |
 | Participants use the naming style of the code | They'll be traced against the code later |
-| It renders | Run `python3 scripts/vsdd/validate_mermaid.py --render` |
+| It passes the validator | Run `python3 scripts/vsdd/validate_mermaid.py --render`. This also checks the Placement rows and the verbatim Before copy |
 
 If something is off, say so now, e.g. *"notes should be saved on blur, not with a Save
 button, so update the Notes Update Flow"*. Fixing a diagram costs far less than
@@ -292,8 +303,9 @@ has to exist, in the layer the diagram shows.
 
 Now the code no longer matches the proposed diagram. The agent should then:
 1. update the After State so `Notes Update Flow` calls `patchBook(id, {notes})`,
-2. add `### Status Update Flow` (or whichever section shows status updates), if the
-   seeded diagrams include one, because that flow changed too,
+2. add `### Status Update Flow` (or whichever section shows status updates) to Before
+   and After, with an `update` row in `## Placement`, if the seeded diagrams include
+   one, because that flow changed too,
 3. add a `## Deviations` section like this:
 
 ```markdown
@@ -322,20 +334,27 @@ does not match code"*. Then undo the rename.
 
 > /opsx:archive
 
-The summary must include a **Diagrams** line, like this:
+The agent runs `scripts/vsdd/merge_diagrams.py` on the change, with `--dry-run` first,
+and the summary must include a **Diagrams** line, like this:
 
 ```
 **Specs:** ✓ Synced to main specs
 **Diagrams:** ✓ Merged into Source of Truth
-  - replaced: End-to-End Data Flow
-  - appended: Notes Update Flow
+  - replaced: End-to-End Data Flow in specs/architecture/diagrams.md
+  - added (appended): Notes Update Flow to specs/book-notes/diagrams.md
+```
+
+You can preview the merge yourself before archiving:
+
+```bash
+python3 scripts/vsdd/merge_diagrams.py openspec/changes/add-book-notes --dry-run
 ```
 
 Check the result yourself:
 
 ```bash
-grep -n "^## " openspec/specs/architecture/diagrams.md      # the new "Notes Update Flow" is present
-git diff openspec/specs/architecture/diagrams.md            # only the named sections changed
+grep -n "^## " openspec/specs/book-notes/diagrams.md        # new file, with "Notes Update Flow"
+git diff openspec/specs/architecture/diagrams.md            # only End-to-End Data Flow changed
 ls openspec/changes/archive/                                # <date>-add-book-notes/
 cat openspec/changes/archive/*-add-book-notes/diagrams.md   # Before, After and Deviations kept as history
 python3 scripts/vsdd/validate_mermaid.py --render
@@ -343,7 +362,9 @@ python3 scripts/vsdd/validate_mermaid.py --render
 
 What you should see:
 - The **Source of Truth** now shows the code as it is, notes included.
-- **Sections not named** in the After State (for example `ReadingListState Machine`)
+- The **new capability owns its flow**: `specs/book-notes/` holds both `spec.md` and
+  `diagrams.md`.
+- **Sections without a Placement row** (for example `ReadingListState Machine`)
   are unchanged.
 - The **archive** keeps the Before/After pair and the Deviations note. That's the
   record of *why* the architecture changed.
@@ -395,15 +416,37 @@ python3 scripts/vsdd/install_overlay.py --check   # "VSDD overlay OK."
 ## 8. Reset and repeat
 
 To test the installation again, for example with a different AI tool or after changing
-the kit:
+the kit, roll the install back. The kit's
+[`SETUP.md`](https://github.com/joecrowley/vsdd-kit/blob/main/SETUP.md#roll-back-an-install)
+has the full procedure. Ask your agent:
+
+> Follow "Roll back an install" in `/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md`.
+
+By hand, it comes down to this:
 
 ```bash
-git reset --hard baseline && git clean -fd
+git switch main                                      # git undoes everything tracked
+SNAP=/Volumes/LacieStore/flutter/vsdd-kit/files/scripts/vsdd/vsdd_snapshot.py
+DIR=$(python3 "$SNAP" latest)                        # the snapshot saved during the install
+python3 "$SNAP" restore "$DIR" --dry-run             # preview
+python3 "$SNAP" restore "$DIR" --yes
+git branch -D vsdd-install                           # deletes the install and your example commits
 ```
 
-`baseline` is the tag on the bare-app commit. This removes `openspec/`, `AGENTS.md`,
-`CLAUDE.md`, the tool folders, `scripts/vsdd/` and your example commits. Build caches
-are kept, since they're gitignored.
+The snapshot restore deletes untracked files the install created, such as gitignored
+tool folders. It also reports if your global OpenSpec config changed; restoring that
+(`--restore-global`) is your call, since it's machine-wide.
+
+For a quick reset of the project folder only:
+
+```bash
+git switch main && git reset --hard origin/main && git clean -fd
+```
+
+This returns the project to the bare app with the latest docs. It discards
+**uncommitted changes and unpushed commits on `main`**, so commit and push first. It
+doesn't touch gitignored files or your global OpenSpec config. (The `baseline` tag
+marks the bare app before these docs were added.)
 
 To test local edits to the kit before pushing them, point your agent at your working
 copy (`/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md`) instead of a fresh clone.
@@ -418,6 +461,9 @@ copy (`/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md`) instead of a fresh clone.
 | `config.yaml` rules don't seem to apply | Wrong key (only `context:` and `rules:` are read) | `openspec instructions diagrams --change <name>` must show `<rules>` |
 | The archive summary has no Diagrams line | Stock command or skill in use (overlay wiped) | `install_overlay.py --check`, then re-apply |
 | "Diagrams: no-op" with a YES gate | After State used `##` instead of `### <Stable Name>` | Fix the headings. The validator flags this |
+| The validator reports a missing or mismatched `## Placement` | A YES gate needs one Placement row per Before/After section | Add or fix the rows (see `docs/VSDD.md` §2) |
+| Archive says "Not merged: fix diagrams.md first" | The Source of Truth changed after the change was proposed, so a Before copy is no longer verbatim | Re-copy the Before section from the current file, adjust the After State, then archive again |
+| A new capability's flow ended up in `specs/architecture/diagrams.md` | The agent skipped the ownership rule | Ask it to change the Placement row to `specs/<capability>/diagrams.md` before archiving |
 | A rendered diagram shows `"Name"` with quotes | Quoted participant alias | Use `participant A as Name`, without quotes |
 | The seeded diagrams name classes that don't exist | The agent guessed instead of reading `lib/` | Ask it to redo Step 6, checking each name with grep |
 | `/opsx:*` command not found | Tool not restarted after init, or a different command prefix | Restart the tool. Use `/opsx-*` in OpenCode and Qwen |
