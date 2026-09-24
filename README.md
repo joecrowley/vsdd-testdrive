@@ -49,11 +49,12 @@ The full guide, including a worked example change, is
    > Follow `/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md` to install VSDD into this project.
 
    The agent runs the kit's
-   [`SETUP.md`](https://github.com/joecrowley/vsdd-kit/blob/main/SETUP.md). It works
-   on a new `vsdd-install` branch and saves a snapshot first, so it can be undone. It
-   initialises OpenSpec, installs the `visual-driven` schema, writes the config and
-   `AGENTS.md`, patches the skills, seeds architecture diagrams from `lib/`, and
-   smoke-tests the result. It asks you only a few questions.
+   [`SETUP.md`](https://github.com/joecrowley/vsdd-kit/blob/main/SETUP.md). Its
+   installer script does the mechanical part in seconds: a `vsdd-install` branch and
+   a snapshot (so it can be undone), OpenSpec, the `visual-driven` schema, the config,
+   `AGENTS.md`, and the skill patches. The agent then describes the app in the config,
+   seeds architecture diagrams from `lib/`, and smoke-tests the result. It asks you
+   only a few questions.
 
 4. **Check the install:** see [§4 of the walkthrough](docs/VSDD_WALKTHROUGH.md#4-check-what-was-installed).
 
@@ -61,10 +62,14 @@ The full guide, including a worked example change, is
    covering propose → diagrams review → apply (including a deliberate deviation) →
    verify → archive. See [§5](docs/VSDD_WALKTHROUGH.md#5-walkthrough-a-change-that-needs-diagrams).
 
+6. **Record a lesson:** fix the app's detail-screen flicker, let the archive step
+   record the rule in `decisions.md`, and check that the next feature follows it. See
+   [§6](docs/VSDD_WALKTHROUGH.md#6-decisions-drill-a-lesson-that-sticks).
+
 ## Resetting
 
 Ask your agent to follow "Roll back an install" in the kit's `SETUP.md`, or see
-[§8 of the walkthrough](docs/VSDD_WALKTHROUGH.md#8-reset-and-repeat). In short:
+[§9 of the walkthrough](docs/VSDD_WALKTHROUGH.md#9-reset-and-repeat). In short:
 switch back to `main`, restore the install snapshot, and delete the `vsdd-install`
 branch.
 

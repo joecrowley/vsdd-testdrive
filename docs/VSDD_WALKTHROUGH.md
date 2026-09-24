@@ -22,10 +22,11 @@ archive.
 3. [Install VSDD with your agent](#3-install-vsdd-with-your-agent)
 4. [Check what was installed](#4-check-what-was-installed)
 5. [Walkthrough: a change that needs diagrams](#5-walkthrough-a-change-that-needs-diagrams)
-6. [Walkthrough: a change that doesn't](#6-walkthrough-a-change-that-doesnt)
-7. [Maintenance drill: survive `openspec update`](#7-maintenance-drill-survive-openspec-update)
-8. [Reset and repeat](#8-reset-and-repeat)
-9. [Troubleshooting](#9-troubleshooting)
+6. [Decisions drill: a lesson that sticks](#6-decisions-drill-a-lesson-that-sticks)
+7. [Walkthrough: a change that doesn't](#7-walkthrough-a-change-that-doesnt)
+8. [Maintenance drill: survive `openspec update`](#8-maintenance-drill-survive-openspec-update)
+9. [Reset and repeat](#9-reset-and-repeat)
+10. [Troubleshooting](#10-troubleshooting)
 
 ---
 
@@ -76,27 +77,40 @@ Open **this folder** in your AI coding tool and say:
 
 > Follow `/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md` to install VSDD into this project.
 
-The agent works through the runbook's 10 steps (0 to 9). It stops only at **ASK**
-points. Here is how to answer them for this test drive:
+The runbook's **fast path** comes first. After you confirm the tools, the agent runs
+the kit's installer, `vsdd_install.py`, which does Steps 0–5 in a few seconds and
+prints a **"Left for you"** list. The agent then spends its time on the judgement
+steps: describing this app in `config.yaml`, and drawing the baseline diagrams from
+`lib/`. With a slow local model this saves many minutes.
+
+You can also run the installer yourself first, and then ask the agent to do only the
+"Left for you" items:
+
+```bash
+python3 /Volumes/LacieStore/flutter/vsdd-kit/files/scripts/vsdd/vsdd_install.py --root . --tools claude --dry-run
+python3 /Volumes/LacieStore/flutter/vsdd-kit/files/scripts/vsdd/vsdd_install.py --root . --tools claude
+```
+
+The agent (or the installer) stops only at **ASK** points. Here is how to answer them
+for this test drive:
 
 | The agent asks | Suggested answer |
 |---|---|
 | Which AI tools? | The tool you're using now, e.g. `claude`, or `opencode`. Add others if you want to test them too |
-| (Only if the tree is dirty) Continue with uncommitted changes? | No. Commit or reset first |
+| (Only if the tree is dirty) Continue with uncommitted changes? | No. Commit or reset first. The installer stops with exit 3 and suggests `--allow-dirty`; don't use it here |
 | Seed capability-level diagrams too? | No. The architecture file is enough for this app |
+| Turn existing conventions into decision entries? | No. This app documents none. §6 adds the first one, learned from a real bug |
 | Add CI? | No. There's no `.github/` here. Say yes if you want to see the workflow file created |
 
 What each step should do **in this project**:
 
 | Step | Expected result here |
 |---|---|
-| 0 Preflight | Reports a **fresh install**: no `openspec/`, no tool folders, no earlier VSDD. Then creates a `vsdd-install` branch and saves a snapshot under `~/.vsdd-snapshots/`, so the install can be rolled back (§8) |
-| 1 OpenSpec | Runs `openspec init --tools <your tools>`, creating `openspec/` and e.g. `.claude/skills`, `.claude/commands` |
-| 2 Files | Adds `openspec/schemas/visual-driven/`, `docs/VSDD.md`, `docs/MERMAID_RULES.md` and `scripts/vsdd/` |
-| 3 Config | Writes `openspec/config.yaml`. Its `context:` should describe **this** app: reading list, Cubit with sealed states, go_router, fake API. No `<PLACEHOLDER>` text |
-| 4 Agent files | **Creates** `AGENTS.md`. Creates `CLAUDE.md` (containing `@AGENTS.md`) only if you chose Claude Code |
-| 5 Overlay | Patches the skills and wraps the `/opsx` commands. `--check` prints `VSDD overlay OK.` |
-| 6 Baseline | Creates `openspec/specs/architecture/diagrams.md` from the real code (see §4) |
+| 0–5 Installer | A **fresh install**, finished in seconds. It creates a `vsdd-install` branch and a snapshot under `~/.vsdd-snapshots/` (so it can be rolled back, §9), runs `openspec init --tools <your tools>`, adds `openspec/schemas/visual-driven/`, `docs/VSDD.md`, `docs/MERMAID_RULES.md` and `scripts/vsdd/`, writes `openspec/config.yaml` from the kit example, creates `AGENTS.md` (plus `CLAUDE.md` for Claude Code), applies the overlay (`VSDD overlay OK.`), and creates an empty `openspec/specs/architecture/decisions.md` |
+| "Left for you" | Starts with: fill in `context:`, replace the TODO line in `AGENTS.md`, seed the baseline diagrams, the decision-entries question, CI, smoke test, report |
+| 3 Context | The agent rewrites `context:` to describe **this** app: reading list, Cubit with sealed states, go_router, fake API. No `<PLACEHOLDER>` text |
+| 4 Description | The TODO line at the top of `AGENTS.md` becomes a one-line description of the app |
+| 6 Baseline | Creates `openspec/specs/architecture/diagrams.md` from the real code (see §4). `decisions.md` stays header-only |
 | 7 CI | Skipped, unless you said yes |
 | 8 Smoke test | Creates, validates, breaks, and deletes a `vsdd-smoke-test` change |
 | 9 Report | A summary with sections for decisions made and anything needing your attention |
@@ -113,6 +127,9 @@ openspec schema validate visual-driven               # "Schema 'visual-driven' i
 python3 scripts/vsdd/install_overlay.py --check      # "VSDD overlay OK."
 python3 scripts/vsdd/validate_mermaid.py --render    # "OK: ... 0 problems (rendered)"
 ls openspec/changes                                  # empty or only archive/ (smoke test removed)
+grep -c "<PROJECT_NAME>" openspec/config.yaml        # 0: context filled in
+grep -c "TODO(vsdd)" AGENTS.md                       # 0: description filled in
+grep -c "^## " openspec/specs/architecture/decisions.md   # 0: no rules yet (§6 adds one)
 ```
 
 **Review the seeded diagrams.** Open `openspec/specs/architecture/diagrams.md` in a
@@ -266,6 +283,7 @@ Review checklist:
 | The gate is YES, with a reason | A NO here would skip the visual review of a real flow change |
 | There is a `## Placement` table with **one row per diagram** in Before/After | The archive merge applies these rows and nothing else. The validator fails if a row and a section don't match |
 | **New flows go in their capability's file** (`Notes Update Flow` → `specs/book-notes/diagrams.md`, action `add`) | A diagram belongs to the capability whose behaviour it shows. Only cross-cutting diagrams, such as the end-to-end data flow, stay in `specs/architecture/diagrams.md`. Agents often get this wrong, so check it |
+| Any row that **adds or moves** a diagram into `specs/architecture/diagrams.md` has a 4th column, `Why here`, naming the capabilities it spans | The validator rejects it otherwise. Because this change creates `book-notes`, it also prints a **warning** for any such row: usually the diagram belongs in `specs/book-notes/diagrams.md`. Updates to existing architecture diagrams, like `End-to-End Data Flow`, need no reason |
 | The Before State is a **verbatim** copy of the Source of Truth section | It's the baseline reviewers compare against. The validator checks this, and the archive refuses to merge if the Source of Truth changed since |
 | The After State keeps the **same stable name** (`End-to-End Data Flow`) | The archive replaces sections by name. A renamed section would leave the old one orphaned |
 | The new diagram has a **new** stable name (`Notes Update Flow`) | It is added on archive, and the file is created if it doesn't exist yet |
@@ -282,7 +300,11 @@ fixing code.
   WHEN/THEN. For example, "notes persist after reload" and "an empty note clears the
   notes".
 - `design.md`: decisions such as notes being optional (`String?`), and where the
-  editing state lives.
+  editing state lives. The agent reads `openspec/specs/architecture/decisions.md`
+  before designing. It's empty for now, so there's nothing to follow yet.
+  **Note how `setNotes` refreshes the list.** It will most likely copy `setStatus`:
+  call `load()`, which emits `ReadingListLoading` first. That's the app's existing
+  flicker bug, now in a second place. §6 turns it into a recorded lesson.
 - `tasks.md`: domain → data → presentation → tests. Because the gate is YES, the last
   task group should include **"trace the After State against the code and record
   Deviations, then run the validator"**. That comes from the `rules.tasks` entry in
@@ -342,7 +364,11 @@ and the summary must include a **Diagrams** line, like this:
 **Diagrams:** ✓ Merged into Source of Truth
   - replaced: End-to-End Data Flow in specs/architecture/diagrams.md
   - added (appended): Notes Update Flow to specs/book-notes/diagrams.md
+**Decisions:** none
 ```
+
+The **Decisions** line comes from the archive step that looks for lessons. Adding a
+field teaches no general rule, so `none` is right here. §6 shows it proposing one.
 
 You can preview the merge yourself before archiving:
 
@@ -375,7 +401,89 @@ git add -A && git commit -m "feat: book notes"
 
 ---
 
-## 6. Walkthrough: a change that doesn't
+## 6. Decisions drill: a lesson that sticks
+
+Specs record what each capability does, not the lessons behind a fix. So a fix in one
+place doesn't stop the same mistake in the next feature. That's what happened in §5:
+`setNotes` copied the flicker from `setStatus`. The decisions log closes the gap.
+This drill fixes the bug, records the lesson, and checks that the next feature follows
+it.
+
+### 6.1 See the bug
+
+```bash
+fvm flutter run -d macos
+```
+
+Open a book and change its status, or save a note. For a moment the detail screen
+shows **"Book not found"**. The Cubit emits `ReadingListLoading` while it reloads, and
+the detail screen can't find the book in a loading state.
+
+### 6.2 Fix it
+
+> /opsx:propose fix the "Book not found" flicker when changing status or saving notes on the detail screen
+
+Review as in §5. Expect:
+- **diagrams.md:** gate **YES**, because the state machine changes. `ReadingListState
+  Machine` is an `update`, and the status and notes flows no longer go through
+  `ReadingListLoading`.
+- **design.md:** a silent refresh. The Cubit keeps emitting the current list and
+  replaces it when the new data arrives. On failure it keeps the book on screen and
+  shows a message, for example a SnackBar.
+- **Tests** that fail on the old code. Ask for a delayed fake fetch if the agent's
+  test would pass either way.
+
+Then `/opsx:apply` and `/opsx:verify` as usual.
+
+### 6.3 Archive: the lesson is proposed
+
+> /opsx:archive
+
+Before moving the change, the archive step asks whether the change teaches a rule.
+Expect it to **show you a draft and ask** before writing anything, like this:
+
+```markdown
+## Silent Refresh After Writes
+- **Rule:** after a write (status, notes, or any future field), refresh the list
+  without emitting ReadingListLoading. Keep the current books until the new ones arrive.
+- **Why:** a loading state drops the book, so the detail screen flashes "Book not found".
+- **Applies to:** ReadingListCubit and any state holder that reloads after a mutation.
+- **Source:** <date>-fix-book-detail-flicker
+```
+
+Say yes. The summary then includes `**Decisions:** added Silent Refresh After Writes`.
+
+```bash
+cat openspec/specs/architecture/decisions.md
+python3 scripts/vsdd/validate_mermaid.py    # also checks each entry has Rule, Why and Source
+git add -A && git commit -m "fix: detail screen flicker after writes"
+```
+
+Optionally, copy the rule into `context:` in `openspec/config.yaml` as a one-line
+`Pitfalls:` entry, so that every artifact sees it even if an agent skips the file.
+
+### 6.4 Prove it sticks
+
+Propose another write on the detail screen:
+
+> /opsx:propose let readers rate a book from 1 to 5 stars on the book detail screen
+
+Check:
+- `design.md` **follows the rule** (it mentions a silent refresh, or names *Silent
+  Refresh After Writes*), or says `Overrides: Silent Refresh After Writes - <why>`.
+- After apply, `ReadingListLoading` is still emitted only by `load()`:
+
+  ```bash
+  grep -n "ReadingListLoading" lib/presentation/reading_list/reading_list_cubit.dart
+  ```
+
+If the agent repeats the old pattern anyway, the decisions log didn't reach it. Check
+that `openspec instructions design --change <name>` mentions `decisions.md`, and
+that `install_overlay.py --check` passes.
+
+---
+
+## 7. Walkthrough: a change that doesn't
 
 Most bug fixes and cosmetic changes need no diagram. Try:
 
@@ -395,7 +503,7 @@ nothing there).
 
 ---
 
-## 7. Maintenance drill: survive `openspec update`
+## 8. Maintenance drill: survive `openspec update`
 
 `openspec update` regenerates the stock skills and commands, and silently drops the
 VSDD additions. Try it:
@@ -413,7 +521,7 @@ python3 scripts/vsdd/install_overlay.py --check   # "VSDD overlay OK."
 
 ---
 
-## 8. Reset and repeat
+## 9. Reset and repeat
 
 To test the installation again, for example with a different AI tool or after changing
 the kit, roll the install back. The kit's
@@ -453,7 +561,7 @@ copy (`/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md`) instead of a fresh clone.
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
@@ -464,10 +572,15 @@ copy (`/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md`) instead of a fresh clone.
 | The validator reports a missing or mismatched `## Placement` | A YES gate needs one Placement row per Before/After section | Add or fix the rows (see `docs/VSDD.md` §2) |
 | Archive says "Not merged: fix diagrams.md first" | The Source of Truth changed after the change was proposed, so a Before copy is no longer verbatim | Re-copy the Before section from the current file, adjust the After State, then archive again |
 | A new capability's flow ended up in `specs/architecture/diagrams.md` | The agent skipped the ownership rule | Ask it to change the Placement row to `specs/<capability>/diagrams.md` before archiving |
+| Validator: "... goes into the architecture file: add a 4th column 'Why here'" | A Placement row adds or moves a diagram into `specs/architecture/diagrams.md` without a reason | Place it in `specs/<capability>/diagrams.md`, or fill in `Why here` with the capabilities it spans |
+| Validator `warning: this change creates <cap>, but ...` | A new capability's change still adds a diagram to the architecture file | Review the row. It usually belongs in the capability's own file. The warning doesn't fail the run |
+| Validator: "decision '…' needs **Rule:** …" | An entry in `decisions.md` is missing a field | Add the Rule, Why and Source lines |
+| A new feature repeats a fixed bug | No decision was recorded when the fix was archived | Add the entry to `decisions.md` now (§6.3), then ask the agent to revise the design |
+| The installer exits with code 3 | It needs a decision from you (dirty tree, workflows `update` would delete, custom schema) | Read its message. It names the flag that records your answer. Nothing was changed |
 | A rendered diagram shows `"Name"` with quotes | Quoted participant alias | Use `participant A as Name`, without quotes |
 | The seeded diagrams name classes that don't exist | The agent guessed instead of reading `lib/` | Ask it to redo Step 6, checking each name with grep |
 | `/opsx:*` command not found | Tool not restarted after init, or a different command prefix | Restart the tool. Use `/opsx-*` in OpenCode and Qwen |
 
 **Found a problem in the kit itself?** Note which step and what happened, fix it in
-`vsdd-kit`, re-run `tests/smoke_test.sh` there, then reset this app (§8) and run the
+`vsdd-kit`, re-run `tests/smoke_test.sh` there, then reset this app (§9) and run the
 installation again.
