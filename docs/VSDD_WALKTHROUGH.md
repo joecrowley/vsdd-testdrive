@@ -125,7 +125,7 @@ for this test drive:
 | Which AI tools? | The tool you're using now, e.g. `claude`, or `opencode`. Add others if you want to test them too |
 | (Only if the tree is dirty) Continue with uncommitted changes? | No. Commit or reset first. The installer stops with exit 3 and suggests `--allow-dirty`; don't use it here |
 | Seed capability-level diagrams too? | No. The architecture file is enough for this app |
-| Turn existing conventions into decision entries? | No. This app documents none. §6 adds the first one, learned from a real bug |
+| Turn existing conventions into decision entries? | No. This app documents none. §5 or §6 adds the first one, learned from the app's own code |
 | Add CI? | No. There's no `.github/` here. Say yes if you want to see the workflow file created |
 
 What each step should do **in this project**:
@@ -139,7 +139,7 @@ What each step should do **in this project**:
 | 6 Baseline | Creates `openspec/specs/architecture/diagrams.md` from the real code (see §4). `decisions.md` stays header-only |
 | 7 CI | Skipped, unless you said yes |
 | 8 Smoke test | Creates, validates, breaks, and deletes a `vsdd-smoke-test` change |
-| 9 Report | A summary with sections for decisions made and anything needing your attention |
+| 9 Report | A summary with sections for decisions made and anything needing your attention. It ends by telling you to **start a new agent session** before the first `/opsx` command |
 
 ---
 
@@ -155,7 +155,7 @@ python3 scripts/vsdd/validate_mermaid.py --render    # "OK: ... 0 problems (rend
 ls openspec/changes                                  # empty or only archive/ (smoke test removed)
 grep -c "<PROJECT_NAME>" openspec/config.yaml        # 0: context filled in
 grep -c "TODO(vsdd)" AGENTS.md                       # 0: description filled in
-grep -c "^## " openspec/specs/architecture/decisions.md   # 0: no rules yet (§6 adds one)
+grep -c "^## " openspec/specs/architecture/decisions.md   # 0: no rules yet (§5 or §6 adds one)
 vsdd-kit status --root .                             # "Up to date."
 ```
 
@@ -244,6 +244,9 @@ Source of Truth before and after. Compare your agent's output with it as you go.
 
 Command names depend on the tool: `/opsx:propose` in Claude Code, `/opsx-propose` in
 OpenCode and Qwen. This guide uses the Claude Code form.
+
+**Start a new agent session first.** Agents load their commands when a session
+starts, so the session that ran the install doesn't have the `/opsx` commands yet.
 
 ### 5.1 Propose
 
@@ -347,9 +350,16 @@ fixing code.
 - `design.md`: decisions such as a dedicated `UpdateBookNotes` use case, and a Save
   button rather than saving on every keystroke. The agent reads `openspec/specs/architecture/decisions.md`
   before designing. It's empty for now, so there's nothing to follow yet.
-  **Note how `setNotes` refreshes the list.** It will most likely copy `setStatus`:
-  call `load()`, which emits `ReadingListLoading` first. That's the app's existing
-  flicker bug, now in a second place. §6 turns it into a recorded lesson.
+  **Note how `setNotes` refreshes the list.** Runs differ here, and both outcomes are
+  useful:
+  - **It copies `setStatus`:** it calls `load()`, which emits `ReadingListLoading`
+    first. That's the app's existing flicker bug, now in a second place.
+  - **It refreshes in place:** it swaps the saved book into the loaded list and emits
+    `ReadingListLoaded` directly, because a loading state would drop the book the
+    detail screen shows. Now the two writes behave differently, and `setStatus`
+    still flickers.
+
+  Either way, §6 turns it into a recorded lesson.
 - `tasks.md`: domain → data → presentation → tests. Because the gate is YES, the last
   task group should include **"trace the After State against the code and record
   Deviations, then run the validator"**. That comes from the `rules.tasks` entry in
@@ -416,11 +426,19 @@ and the summary must include a **Diagrams** line, like this:
   - replaced: ReadingListState Machine in specs/architecture/diagrams.md
   - replaced: Status Update Flow in specs/architecture/diagrams.md
   - added (appended): Notes Update Flow to specs/book-notes/diagrams.md
-**Decisions:** none
+**Decisions:** none - <one-line reason>
 ```
 
-The **Decisions** line comes from the archive step that looks for lessons. Adding a
-field teaches no general rule, so `none` is right here. §6 shows it proposing one.
+The **Decisions** line comes from the archive step that looks for lessons. What it
+should say depends on how `setNotes` refreshes (§5.4):
+- **It copies `setStatus`:** adding a field teaches no general rule, so `none`, with a
+  reason, is right. §6 finds the lesson.
+- **It refreshes in place:** the change set a convention that existing code
+  (`setStatus`) doesn't follow yet. Expect the archive to **show you a draft entry and
+  ask** before adding it, with `setStatus` named under **Applies to:** as not following
+  it yet. Say yes. The summary then says `**Decisions:** added <rule name>`.
+  `none` here is a miss; see §10. (This check arrived after kit 0.3.1. With 0.3.1,
+  the archive may report `none`.)
 
 You can preview the merge yourself before archiving:
 
@@ -456,10 +474,10 @@ git add -A && git commit -m "feat: book notes"
 ## 6. Decisions drill: a lesson that sticks
 
 Specs record what each capability does, not the lessons behind a fix. So a fix in one
-place doesn't stop the same mistake in the next feature. That's what happened in §5:
-`setNotes` copied the flicker from `setStatus`. The decisions log closes the gap.
-This drill fixes the bug, records the lesson, and checks that the next feature follows
-it.
+place doesn't stop the same mistake in the next feature. The decisions log closes the
+gap. After §5, the app still has the flicker in `setStatus`, and possibly in `setNotes`
+too, if that copied it. This drill fixes the bug, records or updates the lesson, and
+checks that the next feature follows it.
 
 ### 6.1 See the bug
 
@@ -467,18 +485,25 @@ it.
 fvm flutter run -d macos
 ```
 
-Open a book and change its status, or save a note. For a moment the detail screen
-shows **"Book not found"**. The Cubit emits `ReadingListLoading` while it reloads, and
+Open a book and change its status (or save a note, if `setNotes` copied the reload).
+For a moment the detail screen shows **"Book not found"**. The Cubit emits `ReadingListLoading` while it reloads, and
 the detail screen can't find the book in a loading state.
 
 ### 6.2 Fix it
 
 > /opsx:propose fix the "Book not found" flicker when changing status or saving notes on the detail screen
 
+If `setNotes` already refreshes in place, leave out "or saving notes".
+
 Review as in §5. Expect:
 - **diagrams.md:** gate **YES**, because the state machine changes. `ReadingListState
-  Machine` is an `update`, and the status and notes flows no longer go through
-  `ReadingListLoading`.
+  Machine` is an `update`, and the status (and notes) flows no longer go through
+  `ReadingListLoading`. If the change creates a capability such as `reading-status`,
+  a diagram that now shows only status updates may **move** there
+  (`move from specs/architecture/diagrams.md`). That's the ownership rule at work.
+  It keeps its stable name, even a general one like `End-to-End Data Flow`.
+- **design.md:** if §5 recorded a rule, it names that rule and follows it, or widens
+  it and says so.
 - **design.md:** a silent refresh. The Cubit keeps emitting the current list and
   replaces it when the new data arrives. On failure it keeps the book on screen and
   shows a message, for example a SnackBar.
@@ -504,6 +529,16 @@ Expect it to **show you a draft and ask** before writing anything, like this:
 ```
 
 Say yes. The summary then includes `**Decisions:** added Silent Refresh After Writes`.
+The rule's name varies from run to run (for example *Refresh In Place After Write*).
+
+**If §5 already recorded the rule**, expect the archive to propose an **update**
+instead: `setStatus` now follows it, so it moves from "doesn't follow it yet" to
+"follows it". Watch for a rule scoped so narrowly that it excuses the code that was
+broken. One run's first draft covered only "writes that don't change list order",
+which let `setStatus` off because a status change re-sorts the list. The flicker comes
+from the loading state, not the sort, and the §6 archive widened the rule to "after a
+write, replace the item (re-sorting if needed)". The summary then says
+`**Decisions:** updated <rule name>`, and the entry's **Source:** names both changes.
 
 ```bash
 cat openspec/specs/architecture/decisions.md
@@ -521,13 +556,17 @@ Propose another write on the detail screen:
 > /opsx:propose let readers rate a book from 1 to 5 stars on the book detail screen
 
 Check:
-- `design.md` **follows the rule** (it mentions a silent refresh, or names *Silent
-  Refresh After Writes*), or says `Overrides: Silent Refresh After Writes - <why>`.
+- `design.md` **follows the rule** (it mentions a silent refresh, or names the rule
+  from §5 or §6), or says `Overrides: <rule name> - <why>`.
 - After apply, `ReadingListLoading` is still emitted only by `load()`:
 
   ```bash
   grep -n "ReadingListLoading" lib/presentation/reading_list/reading_list_cubit.dart
   ```
+
+- The archive says `**Decisions:** none`, with a reason: the change follows the rule and
+  sets nothing new. If the rule's **Applies to:** already says "any future write", it
+  needs no edit either.
 
 If the agent repeats the old pattern anyway, the decisions log didn't reach it. Check
 that `openspec instructions design --change <name>` mentions `decisions.md`, and
@@ -548,6 +587,10 @@ Expected `diagrams.md`, in full:
 
 NO - cosmetic theme change. No navigation, state, data flow, topology or schema impact.
 ```
+
+A change this small usually has no `design.md`, since it's optional. The artifact
+status then reads 4/5, and the archive asks you to confirm. Say yes: that's standard
+OpenSpec behaviour, not a VSDD problem.
 
 Apply it, then archive. The archive summary should show `Diagrams: no-op`, and
 `openspec/specs/architecture/diagrams.md` should be **unchanged** (`git diff` shows
@@ -632,11 +675,12 @@ copy (`/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md`) instead of a fresh clone.
 | Validator `warning: this change creates <cap>, but ...` | A new capability's change still adds a diagram to the architecture file | Review the row. It usually belongs in the capability's own file. The warning doesn't fail the run |
 | Validator: "decision '…' needs **Rule:** …" | An entry in `decisions.md` is missing a field | Add the Rule, Why and Source lines |
 | A new feature repeats a fixed bug | No decision was recorded when the fix was archived | Add the entry to `decisions.md` now (§6.3), then ask the agent to revise the design |
+| The archive says `Decisions: none`, but the change handles a write differently from existing code (e.g. `setNotes` refreshes in place, `setStatus` still reloads) | A kit older than the divergence check (0.3.1 and earlier), or the agent missed it | Upgrade the kit (`vsdd-kit status --root .`). For this change, ask the agent to draft the entry now, naming the code that doesn't follow it yet |
 | `vsdd-kit status` says an upgrade is due | The kit has a newer release than the one that installed VSDD here | Branch, then run the installer command it prints. It refreshes the files and the overlay in place |
 | The installer exits with code 3 | It needs a decision from you (dirty tree, workflows `update` would delete, custom schema) | Read its message. It names the flag that records your answer. Nothing was changed |
 | A rendered diagram shows `"Name"` with quotes | Quoted participant alias | Use `participant A as Name`, without quotes |
 | The seeded diagrams name classes that don't exist | The agent guessed instead of reading `lib/` | Ask it to redo Step 6, checking each name with grep |
-| `/opsx:*` command not found | Tool not restarted after init, or a different command prefix | Restart the tool. Use `/opsx-*` in OpenCode and Qwen |
+| `/opsx:*` command not found | Same session as the install, or a different command prefix | Start a new session, or restart the tool. Use `/opsx-*` in OpenCode and Qwen |
 
 **Found a problem in the kit itself?** Note which step and what happened, fix it in
 `vsdd-kit`, re-run `tests/smoke_test.sh` there, then reset this app (§9) and run the
