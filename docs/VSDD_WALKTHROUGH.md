@@ -552,7 +552,11 @@ NO - cosmetic theme change. No navigation, state, data flow, topology or schema 
 
 Apply it, then archive. The archive summary should show `Diagrams: no-op`, and
 `openspec/specs/architecture/diagrams.md` should be **unchanged** (`git diff` shows
-nothing there).
+nothing there). Then commit it, like the changes before:
+
+```bash
+git add -A && git commit -m "style: indigo theme"
+```
 
 ---
 
@@ -586,6 +590,7 @@ has the full procedure. Ask your agent:
 By hand, it comes down to this:
 
 ```bash
+git status --short                                   # must be empty: commit or discard your work first
 git switch main                                      # git undoes everything tracked
 DIR=$(vsdd-kit snapshot latest)                      # the snapshot saved during the install
 vsdd-kit snapshot restore "$DIR" --dry-run           # preview
