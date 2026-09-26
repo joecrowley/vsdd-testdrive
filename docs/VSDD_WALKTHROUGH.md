@@ -53,13 +53,11 @@ Start from the clean baseline: `git status` should show nothing to commit.
 from GitHub. Make it a shell alias for this session:
 
 ```bash
-alias vsdd-kit='uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.0 vsdd-kit'
-vsdd-kit --version                                   # vsdd-kit 0.3.0
+alias vsdd-kit='uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.1 vsdd-kit'
+vsdd-kit --version                                   # vsdd-kit 0.3.1
 ```
 
-While the kit repository is private, use
-`git+ssh://git@github.com/joecrowley/vsdd-kit@v0.3.0` as the source instead. The rest
-of this guide writes `vsdd-kit` for the command. `vsdd-kit guide` prints the runbook,
+The rest of this guide writes `vsdd-kit` for the command. `vsdd-kit guide` prints the runbook,
 and `vsdd-kit path` prints the kit folder it runs from.
 
 **Or clone it** next to this project. You need a clone to test local edits to the kit
@@ -97,8 +95,9 @@ runbook your agent follows. You don't need to read it, but it's worth skimming o
 
 Open **this folder** in your AI coding tool and say:
 
-> Install VSDD into this project: run `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.0 vsdd-kit guide`
-> and follow the runbook it prints. Use `vsdd-kit path` as `KIT`.
+> Install VSDD into this project: run `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.1 vsdd-kit guide`
+> and follow the runbook it prints. `KIT` is the folder printed by
+> `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.1 vsdd-kit path`.
 
 Or, with a clone:
 
