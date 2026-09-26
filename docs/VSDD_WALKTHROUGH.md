@@ -8,7 +8,10 @@ archive.
 - **Kit:** [github.com/joecrowley/vsdd-kit](https://github.com/joecrowley/vsdd-kit)
 - **Time:** about 15 minutes to install and 20–30 minutes for the example change
 - **You need:** an AI coding tool (Claude Code, OpenCode, Qwen Code, Codex, Cursor...),
-  Node.js, Python ≥ 3.9 and FVM
+  Node.js, Python ≥ 3.9 and FVM. Optionally [uv](https://docs.astral.sh/uv/), to run
+  the kit without cloning it
+- **A finished run of §5**, with every file it produced, is in the kit:
+  [`examples/book-notes`](https://github.com/joecrowley/vsdd-kit/tree/main/examples/book-notes)
 
 > Your agent's output will differ in wording and detail from the examples below. The
 > examples show the **shape** to expect, and what to look for when you review.
@@ -46,7 +49,21 @@ Start from the clean baseline: `git status` should show nothing to commit.
 
 ## 2. Get the kit
 
-Clone it next to this project. SSH:
+**Without cloning**, with uv: the `vsdd-kit` command runs a tagged release straight
+from GitHub. Make it a shell alias for this session:
+
+```bash
+alias vsdd-kit='uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.0 vsdd-kit'
+vsdd-kit --version                                   # vsdd-kit 0.3.0
+```
+
+While the kit repository is private, use
+`git+ssh://git@github.com/joecrowley/vsdd-kit@v0.3.0` as the source instead. The rest
+of this guide writes `vsdd-kit` for the command. `vsdd-kit guide` prints the runbook,
+and `vsdd-kit path` prints the kit folder it runs from.
+
+**Or clone it** next to this project. You need a clone to test local edits to the kit
+(§9). SSH:
 
 ```bash
 git clone git@github.com:joecrowley/vsdd-kit.git /Volumes/LacieStore/flutter/vsdd-kit
@@ -59,6 +76,11 @@ git clone https://github.com/joecrowley/vsdd-kit.git /Volumes/LacieStore/flutter
 ```
 
 If you already have it, update it with `git -C /Volumes/LacieStore/flutter/vsdd-kit pull`.
+Then point the alias at the clone, so every `vsdd-kit` command below runs your copy:
+
+```bash
+alias vsdd-kit='PYTHONPATH=/Volumes/LacieStore/flutter/vsdd-kit python3 -m vsdd_kit'
+```
 
 Optionally, check that the kit works with your OpenSpec version before installing:
 
@@ -75,10 +97,15 @@ runbook your agent follows. You don't need to read it, but it's worth skimming o
 
 Open **this folder** in your AI coding tool and say:
 
+> Install VSDD into this project: run `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.0 vsdd-kit guide`
+> and follow the runbook it prints. Use `vsdd-kit path` as `KIT`.
+
+Or, with a clone:
+
 > Follow `/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md` to install VSDD into this project.
 
-The runbook's **fast path** comes first. After you confirm the tools, the agent runs
-the kit's installer, `vsdd_install.py`, which does Steps 0–5 in a few seconds and
+The runbook starts with the installer. After you confirm the tools, the agent runs
+`vsdd_install.py` (`vsdd-kit install`), which does Steps 0–5 in a few seconds and
 prints a **"Left for you"** list. The agent then spends its time on the judgement
 steps: describing this app in `config.yaml`, and drawing the baseline diagrams from
 `lib/`. With a slow local model this saves many minutes.
@@ -87,8 +114,8 @@ You can also run the installer yourself first, and then ask the agent to do only
 "Left for you" items:
 
 ```bash
-python3 /Volumes/LacieStore/flutter/vsdd-kit/files/scripts/vsdd/vsdd_install.py --root . --tools claude --dry-run
-python3 /Volumes/LacieStore/flutter/vsdd-kit/files/scripts/vsdd/vsdd_install.py --root . --tools claude
+vsdd-kit install --root . --tools claude --dry-run
+vsdd-kit install --root . --tools claude
 ```
 
 The agent (or the installer) stops only at **ASK** points. Here is how to answer them
@@ -106,7 +133,7 @@ What each step should do **in this project**:
 
 | Step | Expected result here |
 |---|---|
-| 0–5 Installer | A **fresh install**, finished in seconds. It creates a `vsdd-install` branch and a snapshot under `~/.vsdd-snapshots/` (so it can be rolled back, §9), runs `openspec init --tools <your tools>`, adds `openspec/schemas/visual-driven/`, `docs/VSDD.md`, `docs/MERMAID_RULES.md` and `scripts/vsdd/`, writes `openspec/config.yaml` from the kit example, creates `AGENTS.md` (plus `CLAUDE.md` for Claude Code), applies the overlay (`VSDD overlay OK.`), and creates an empty `openspec/specs/architecture/decisions.md` |
+| 0–5 Installer | A **fresh install**, finished in seconds. It creates a `vsdd-install` branch and a snapshot under `~/.vsdd-snapshots/` (so it can be rolled back, §9), runs `openspec init --tools <your tools>`, adds `openspec/schemas/visual-driven/`, `docs/VSDD.md`, `docs/MERMAID_RULES.md` and `scripts/vsdd/`, writes `openspec/config.yaml` from the kit example, creates `AGENTS.md` (plus `CLAUDE.md` for Claude Code), applies the overlay (`VSDD overlay OK.`), creates an empty `openspec/specs/architecture/decisions.md`, and records the kit version in `openspec/.vsdd.json` |
 | "Left for you" | Starts with: fill in `context:`, replace the TODO line in `AGENTS.md`, seed the baseline diagrams, the decision-entries question, CI, smoke test, report |
 | 3 Context | The agent rewrites `context:` to describe **this** app: reading list, Cubit with sealed states, go_router, fake API. No `<PLACEHOLDER>` text |
 | 4 Description | The TODO line at the top of `AGENTS.md` becomes a one-line description of the app |
@@ -130,51 +157,61 @@ ls openspec/changes                                  # empty or only archive/ (s
 grep -c "<PROJECT_NAME>" openspec/config.yaml        # 0: context filled in
 grep -c "TODO(vsdd)" AGENTS.md                       # 0: description filled in
 grep -c "^## " openspec/specs/architecture/decisions.md   # 0: no rules yet (§6 adds one)
+vsdd-kit status --root .                             # "Up to date."
 ```
 
 **Review the seeded diagrams.** Open `openspec/specs/architecture/diagrams.md` in a
 Mermaid-capable preview (VS Code, or GitHub). Expect 2–4 `## <Stable Name>` sections
-built from **real names in `lib/`**. Something like this:
+built from **real names in `lib/`**. The names vary from run to run. One run seeded
+these, and they're the baseline of the kit's worked example:
 
 ````markdown
-## End-to-End Data Flow
+## Status Update Flow
 
-Loading the reading list, from screen to fake API and back.
+How changing a book's reading status travels from the detail screen to the fake
+API and back, including the full list reload after a successful write.
 
 ```mermaid
 sequenceDiagram
     actor U as User
-    participant S as ReadingListScreen
+    participant D as BookDetailScreen
     participant C as ReadingListCubit
-    participant G as GetReadingList
+    participant UC as UpdateReadingStatus
     participant R as ApiBookRepository
     participant A as BookApi
-    U->>S: open app
-    S->>C: load()
+    U->>D: selects a status segment
+    D->>C: setStatus(id, status)
     activate C
-    C->>G: call()
-    G->>R: fetchReadingList()
-    R->>A: getBooks()
-    A-->>R: rows
-    R-->>G: Ok(books)
-    G-->>C: Ok(books sorted by status)
-    C-->>S: ReadingListLoaded
+    C->>UC: call(id, status)
+    activate UC
+    UC->>R: updateStatus(id, status)
+    activate R
+    R->>A: patchStatus(id, status)
+    activate A
+    A-->>R: updated row
+    deactivate A
+    R-->>UC: Ok(Book)
+    deactivate R
+    UC-->>C: Ok(Book)
+    deactivate UC
+    C->>C: load()
+    C-->>D: ReadingListLoaded(books)
     deactivate C
 ```
 
 ## ReadingListState Machine
 
-States emitted by ReadingListCubit.
+State transitions of ReadingListCubit.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ReadingListInitial
-    ReadingListInitial --> ReadingListLoading: load()
-    ReadingListLoading --> ReadingListLoaded: Ok
-    ReadingListLoading --> ReadingListError: Err
-    ReadingListError --> ReadingListLoading: Retry
-    ReadingListLoaded --> ReadingListLoading: setStatus ok, reload
-    ReadingListLoaded --> ReadingListError: setStatus failed
+    [*] --> Initial
+    Initial --> Loading: load()
+    Error --> Loading: load() (retry)
+    Loading --> Loaded: Ok(books)
+    Loading --> Error: Err
+    Loaded --> Loading: setStatus Ok, then load()
+    Loaded --> Error: setStatus Err
 ```
 ````
 
@@ -201,6 +238,11 @@ git add -A && git commit -m "chore: install VSDD"
 This touches data flow (a new update path through all the layers) and the detail
 screen, so it should get a **YES** gate.
 
+The kit has a finished run of this exact change, with the same baseline as §4:
+[`examples/book-notes`](https://github.com/joecrowley/vsdd-kit/tree/main/examples/book-notes).
+It holds the proposed and built `diagrams.md`, the code, the merge output, and the
+Source of Truth before and after. Compare your agent's output with it as you go.
+
 Command names depend on the tool: `/opsx:propose` in Claude Code, `/opsx-propose` in
 OpenCode and Qwen. This guide uses the Claude Code form.
 
@@ -221,57 +263,61 @@ Check:
 
 ### 5.3 Review `diagrams.md`: the most important review point
 
-Expect something like this:
+Expect something like this. It's the start of the worked example's `diagrams.md`, with
+the state machine bodies cut:
 
 ````markdown
 ## Diagram needed?
 
-YES - adds a notes update path through data, domain and presentation, and a new
-detail-screen interaction.
+YES - adds a notes update path through data, domain and presentation, and new
+transitions to the ReadingListCubit state machine.
 
 ## Placement
 
-| Stable name | Source of Truth file | Action |
-|---|---|---|
-| End-to-End Data Flow | specs/architecture/diagrams.md | update |
-| Notes Update Flow | specs/book-notes/diagrams.md | add |
+| Stable name | Source of Truth file | Action | Why here |
+|---|---|---|---|
+| ReadingListState Machine | specs/architecture/diagrams.md | update | |
+| Notes Update Flow | specs/book-notes/diagrams.md | add | |
 
 ## Before State
 
-### End-to-End Data Flow
-Loading the reading list, from screen to fake API and back.
-
+### ReadingListState Machine
 <verbatim copy of the Source of Truth section, including its mermaid block>
 
 ## After State
 
-### End-to-End Data Flow
-Loading the reading list, from screen to fake API and back. Books now carry notes.
-
-<same sequence diagram, with `R-->>G: Ok(books with notes)`>
+### ReadingListState Machine
+<the same state machine, plus `Loaded --> Loading: setNotes Ok, then load()`
+and `Loaded --> Error: setNotes Err`>
 
 ### Notes Update Flow
-Saving a note from the detail screen.
+Saving a book's notes from the detail screen, through to the fake API, then the list reload.
 
 ```mermaid
 sequenceDiagram
     actor U as User
     participant D as BookDetailScreen
     participant C as ReadingListCubit
-    participant N as UpdateBookNotes
+    participant UC as UpdateBookNotes
     participant R as ApiBookRepository
     participant A as BookApi
-    U->>D: edit notes, tap Save
+    U->>D: edits the notes, taps Save
     D->>C: setNotes(id, text)
     activate C
-    C->>N: call(id, text)
-    N->>R: updateNotes(id, text)
+    C->>UC: call(id, text)
+    activate UC
+    UC->>R: updateNotes(id, text)
+    activate R
     R->>A: patchNotes(id, text)
-    A-->>R: row
-    R-->>N: Ok(book)
-    N-->>C: Ok(book)
+    activate A
+    A-->>R: updated row
+    deactivate A
+    R-->>UC: Ok(Book)
+    deactivate R
+    UC-->>C: Ok(Book)
+    deactivate UC
     C->>C: load()
-    C-->>D: ReadingListLoaded
+    C-->>D: ReadingListLoaded(books)
     deactivate C
 ```
 ````
@@ -283,9 +329,9 @@ Review checklist:
 | The gate is YES, with a reason | A NO here would skip the visual review of a real flow change |
 | There is a `## Placement` table with **one row per diagram** in Before/After | The archive merge applies these rows and nothing else. The validator fails if a row and a section don't match |
 | **New flows go in their capability's file** (`Notes Update Flow` → `specs/book-notes/diagrams.md`, action `add`) | A diagram belongs to the capability whose behaviour it shows. Only cross-cutting diagrams, such as the end-to-end data flow, stay in `specs/architecture/diagrams.md`. Agents often get this wrong, so check it |
-| Any row that **adds or moves** a diagram into `specs/architecture/diagrams.md` has a 4th column, `Why here`, naming the capabilities it spans | The validator rejects it otherwise. Because this change creates `book-notes`, it also prints a **warning** for any such row: usually the diagram belongs in `specs/book-notes/diagrams.md`. Updates to existing architecture diagrams, like `End-to-End Data Flow`, need no reason |
+| Any row that **adds or moves** a diagram into `specs/architecture/diagrams.md` has a 4th column, `Why here`, naming the capabilities it spans | The validator rejects it otherwise. Because this change creates `book-notes`, it also prints a **warning** for any such row: usually the diagram belongs in `specs/book-notes/diagrams.md`. Updates to existing architecture diagrams, like `ReadingListState Machine`, need no reason |
 | The Before State is a **verbatim** copy of the Source of Truth section | It's the baseline reviewers compare against. The validator checks this, and the archive refuses to merge if the Source of Truth changed since |
-| The After State keeps the **same stable name** (`End-to-End Data Flow`) | The archive replaces sections by name. A renamed section would leave the old one orphaned |
+| The After State keeps the **same stable name** (`ReadingListState Machine`) | The archive replaces sections by name. A renamed section would leave the old one orphaned |
 | The new diagram has a **new** stable name (`Notes Update Flow`) | It is added on archive, and the file is created if it doesn't exist yet |
 | Participants use the naming style of the code | They'll be traced against the code later |
 | It passes the validator | Run `python3 scripts/vsdd/validate_mermaid.py --render`. This also checks the Placement rows and the verbatim Before copy |
@@ -299,8 +345,8 @@ fixing code.
 - `specs/book-notes/spec.md`: `### Requirement:` blocks with `#### Scenario:`
   WHEN/THEN. For example, "notes persist after reload" and "an empty note clears the
   notes".
-- `design.md`: decisions such as notes being optional (`String?`), and where the
-  editing state lives. The agent reads `openspec/specs/architecture/decisions.md`
+- `design.md`: decisions such as a dedicated `UpdateBookNotes` use case, and a Save
+  button rather than saving on every keystroke. The agent reads `openspec/specs/architecture/decisions.md`
   before designing. It's empty for now, so there's nothing to follow yet.
   **Note how `setNotes` refreshes the list.** It will most likely copy `setStatus`:
   call `load()`, which emits `ReadingListLoading` first. That's the app's existing
@@ -332,10 +378,16 @@ Now the code no longer matches the proposed diagram. The agent should then:
 
 ```markdown
 ## Deviations
-- **Proposed:** `BookApi.patchNotes(id, text)`. **Built:** `BookApi.patchBook(id, changes)`,
-  shared with status updates. **Why:** one PATCH path for all book fields avoids
-  duplicated latency and error handling (user decision during apply).
+
+- **Proposed:** `BookApi.patchNotes(id, text)`, next to `patchStatus` (design D3).
+  **Built:** one `BookApi.patchBook(id, changes)`, used for notes and status alike.
+  `ApiBookRepository.updateStatus` now calls `patchBook(id, {'status': ...})`, so the
+  Status Update Flow changed too, and got a Placement row.
+  **Why:** a reviewer asked for one PATCH path for all book fields during apply.
 ```
+
+That's the worked example's note. Its check found the second mismatch, in
+`Status Update Flow`, although the proposal never mentioned that diagram.
 
 Then confirm the app still works:
 
@@ -362,7 +414,8 @@ and the summary must include a **Diagrams** line, like this:
 ```
 **Specs:** ✓ Synced to main specs
 **Diagrams:** ✓ Merged into Source of Truth
-  - replaced: End-to-End Data Flow in specs/architecture/diagrams.md
+  - replaced: ReadingListState Machine in specs/architecture/diagrams.md
+  - replaced: Status Update Flow in specs/architecture/diagrams.md
   - added (appended): Notes Update Flow to specs/book-notes/diagrams.md
 **Decisions:** none
 ```
@@ -380,7 +433,7 @@ Check the result yourself:
 
 ```bash
 grep -n "^## " openspec/specs/book-notes/diagrams.md        # new file, with "Notes Update Flow"
-git diff openspec/specs/architecture/diagrams.md            # only End-to-End Data Flow changed
+git diff openspec/specs/architecture/diagrams.md            # only the sections with Placement rows changed
 ls openspec/changes/archive/                                # <date>-add-book-notes/
 cat openspec/changes/archive/*-add-book-notes/diagrams.md   # Before, After and Deviations kept as history
 python3 scripts/vsdd/validate_mermaid.py --render
@@ -390,8 +443,8 @@ What you should see:
 - The **Source of Truth** now shows the code as it is, notes included.
 - The **new capability owns its flow**: `specs/book-notes/` holds both `spec.md` and
   `diagrams.md`.
-- **Sections without a Placement row** (for example `ReadingListState Machine`)
-  are unchanged.
+- **Sections without a Placement row** (for example `Module Hierarchy`) are
+  unchanged.
 - The **archive** keeps the Before/After pair and the Deviations note. That's the
   record of *why* the architecture changed.
 
@@ -525,19 +578,18 @@ python3 scripts/vsdd/install_overlay.py --check   # "VSDD overlay OK."
 
 To test the installation again, for example with a different AI tool or after changing
 the kit, roll the install back. The kit's
-[`SETUP.md`](https://github.com/joecrowley/vsdd-kit/blob/main/SETUP.md#roll-back-an-install)
+[`docs/SETUP-REFERENCE.md`](https://github.com/joecrowley/vsdd-kit/blob/main/docs/SETUP-REFERENCE.md#roll-back-an-install)
 has the full procedure. Ask your agent:
 
-> Follow "Roll back an install" in `/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md`.
+> Follow "Roll back an install" in the VSDD setup reference (`vsdd-kit guide --reference`).
 
 By hand, it comes down to this:
 
 ```bash
 git switch main                                      # git undoes everything tracked
-SNAP=/Volumes/LacieStore/flutter/vsdd-kit/files/scripts/vsdd/vsdd_snapshot.py
-DIR=$(python3 "$SNAP" latest)                        # the snapshot saved during the install
-python3 "$SNAP" restore "$DIR" --dry-run             # preview
-python3 "$SNAP" restore "$DIR" --yes
+DIR=$(vsdd-kit snapshot latest)                      # the snapshot saved during the install
+vsdd-kit snapshot restore "$DIR" --dry-run           # preview
+vsdd-kit snapshot restore "$DIR" --yes
 git branch -D vsdd-install                           # deletes the install and your example commits
 ```
 
@@ -576,6 +628,7 @@ copy (`/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md`) instead of a fresh clone.
 | Validator `warning: this change creates <cap>, but ...` | A new capability's change still adds a diagram to the architecture file | Review the row. It usually belongs in the capability's own file. The warning doesn't fail the run |
 | Validator: "decision '…' needs **Rule:** …" | An entry in `decisions.md` is missing a field | Add the Rule, Why and Source lines |
 | A new feature repeats a fixed bug | No decision was recorded when the fix was archived | Add the entry to `decisions.md` now (§6.3), then ask the agent to revise the design |
+| `vsdd-kit status` says an upgrade is due | The kit has a newer release than the one that installed VSDD here | Branch, then run the installer command it prints. It refreshes the files and the overlay in place |
 | The installer exits with code 3 | It needs a decision from you (dirty tree, workflows `update` would delete, custom schema) | Read its message. It names the flag that records your answer. Nothing was changed |
 | A rendered diagram shows `"Name"` with quotes | Quoted participant alias | Use `participant A as Name`, without quotes |
 | The seeded diagrams name classes that don't exist | The agent guessed instead of reading `lib/` | Ask it to redo Step 6, checking each name with grep |
