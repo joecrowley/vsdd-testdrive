@@ -53,8 +53,8 @@ Start from the clean baseline: `git status` should show nothing to commit.
 from GitHub. Make it a shell alias for this session:
 
 ```bash
-alias vsdd-kit='uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.1 vsdd-kit'
-vsdd-kit --version                                   # vsdd-kit 0.3.1
+alias vsdd-kit='uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.2 vsdd-kit'
+vsdd-kit --version                                   # vsdd-kit 0.3.2
 ```
 
 The rest of this guide writes `vsdd-kit` for the command. `vsdd-kit guide` prints the runbook,
@@ -95,9 +95,9 @@ runbook your agent follows. You don't need to read it, but it's worth skimming o
 
 Open **this folder** in your AI coding tool and say:
 
-> Install VSDD into this project: run `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.1 vsdd-kit guide`
+> Install VSDD into this project: run `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.2 vsdd-kit guide`
 > and follow the runbook it prints. `KIT` is the folder printed by
-> `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.1 vsdd-kit path`.
+> `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.2 vsdd-kit path`.
 
 Or, with a clone:
 
@@ -437,8 +437,7 @@ should say depends on how `setNotes` refreshes (§5.4):
   (`setStatus`) doesn't follow yet. Expect the archive to **show you a draft entry and
   ask** before adding it, with `setStatus` named under **Applies to:** as not following
   it yet. Say yes. The summary then says `**Decisions:** added <rule name>`.
-  `none` here is a miss; see §10. (This check arrived after kit 0.3.1. With 0.3.1,
-  the archive may report `none`.)
+  `none` here is a miss; see §10.
 
 You can preview the merge yourself before archiving:
 
