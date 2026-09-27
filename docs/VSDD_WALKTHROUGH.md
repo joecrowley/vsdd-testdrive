@@ -510,6 +510,12 @@ Review as in §5. Expect:
   shows a message, for example a SnackBar.
 - **Tests** that fail on the old code. Ask for a delayed fake fetch if the agent's
   test would pass either way.
+- **The list order after a status change.** The list shows books being read first,
+  and the old reload re-sorted it after every write. An in-place update must re-sort
+  when the write can change the order, or a book marked "finished" stays at the top.
+  One run's fix missed this in its design, diagrams, tests and rule. Check that
+  `setStatus` re-sorts, that a test checks the order after a status change, and that
+  the rule says "re-sort when the write can change order".
 
 Then `/opsx:apply` and `/opsx:verify` as usual.
 
