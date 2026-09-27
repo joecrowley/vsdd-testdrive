@@ -53,8 +53,8 @@ Start from the clean baseline: `git status` should show nothing to commit.
 from GitHub. Make it a shell alias for this session:
 
 ```bash
-alias vsdd-kit='uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.4 vsdd-kit'
-vsdd-kit --version                                   # vsdd-kit 0.3.4
+alias vsdd-kit='uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.5 vsdd-kit'
+vsdd-kit --version                                   # vsdd-kit 0.3.5
 ```
 
 The rest of this guide writes `vsdd-kit` for the command. `vsdd-kit guide` prints the runbook,
@@ -95,9 +95,9 @@ runbook your agent follows. You don't need to read it, but it's worth skimming o
 
 Open **this folder** in your AI coding tool and say:
 
-> Install VSDD into this project: run `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.4 vsdd-kit guide`
+> Install VSDD into this project: run `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.5 vsdd-kit guide`
 > and follow the runbook it prints. `KIT` is the folder printed by
-> `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.4 vsdd-kit path`.
+> `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.5 vsdd-kit path`.
 
 Or, with a clone:
 
