@@ -39,9 +39,16 @@ archive.
 npm install -g @fission-ai/openspec@latest      # OpenSpec CLI, needs >= 1.2.0
 openspec --version
 python3 --version                                # >= 3.9
+uv --version                                     # for uvx (§2); install: brew install uv
 npm install -g @mermaid-js/mermaid-cli           # optional: lets the validator render diagrams
 fvm flutter test                                 # the app itself: 4 tests should pass
 ```
+
+You need `python3` even when you run the kit with `uvx`. `uvx` brings its own Python
+for the kit, but the skills run the scripts it copies into the project with
+`python3`. The installer checks this and stops with exit 2 if `python3` is missing,
+doesn't run, or is older than 3.9. On macOS, `python3` can be a stub that asks to
+install the Xcode command-line tools; `brew install python` gives you a real one.
 
 Start from the clean baseline: `git status` should show nothing to commit.
 
