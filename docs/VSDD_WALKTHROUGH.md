@@ -60,8 +60,8 @@ Start from the clean baseline: `git status` should show nothing to commit.
 from GitHub. Make it a shell alias for this session:
 
 ```bash
-alias vsdd-kit='uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.6 vsdd-kit'
-vsdd-kit --version                                   # vsdd-kit 0.3.6
+alias vsdd-kit='uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.7 vsdd-kit'
+vsdd-kit --version                                   # vsdd-kit 0.3.7
 ```
 
 The rest of this guide writes `vsdd-kit` for the command. `vsdd-kit guide` prints the runbook,
@@ -102,9 +102,9 @@ runbook your agent follows. You don't need to read it, but it's worth skimming o
 
 Open **this folder** in your AI coding tool and say:
 
-> Install VSDD into this project: run `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.6 vsdd-kit guide`
+> Install VSDD into this project: run `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.7 vsdd-kit guide`
 > and follow the runbook it prints. `KIT` is the folder printed by
-> `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.6 vsdd-kit path`.
+> `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.7 vsdd-kit path`.
 
 Or, with a clone:
 
@@ -618,6 +618,8 @@ git add -A && git commit -m "style: indigo theme"
 
 ## 8. Maintenance drill: survive `openspec update`
 
+### 8.1 Re-apply the overlay
+
 `openspec update` regenerates the stock skills and commands, and silently drops the
 VSDD additions. Try it:
 
@@ -631,6 +633,52 @@ python3 scripts/vsdd/install_overlay.py --check   # "VSDD overlay OK."
 > `openspec update` also **removes** skills for workflows that aren't in your global
 > profile (`openspec config list`). If you use extra workflows such as continue, ff or
 > bulk-archive, add them with `openspec config profile` first.
+
+### 8.2 Catch diagram drift
+
+Diagrams go stale when code changes without them: a hotfix, a rename in a change whose
+gate was NO, a hand edit. Every later change copies the stale diagram as its Before
+state, so the error travels. Since kit 0.3.7, two checks catch this. Try them with a
+rename that doesn't touch the diagrams:
+
+```bash
+grep -rl UpdateReadingStatus lib test | xargs sed -i '' 's/UpdateReadingStatus/ChangeReadingStatus/g'
+fvm flutter test                                  # the app still works
+python3 scripts/vsdd/validate_mermaid.py          # warning: '<section>': UpdateReadingStatus not found in the project's code
+```
+
+(On Linux, use `sed -i` without the `''`.)
+
+The validator warns once for each Source of Truth diagram that still shows the old
+name. The run still passes: drift is a warning, not an error. Add `--names-strict` to
+make it fail, for example in CI.
+
+Now propose a change that goes through that flow:
+
+> /opsx:propose show a message on the detail screen when changing a book's status fails
+
+In its `diagrams.md`, check:
+
+| Check | Expected |
+|---|---|
+| `## Before State` | Still says `UpdateReadingStatus`: it is a verbatim copy of the Source of Truth |
+| `## After State` | Says `ChangeReadingStatus`: the agent checked the code before planning |
+| `## Source of Truth drift` | Lists the rename (diagram says / code does). It is a record only, and never merged |
+| A stale diagram the change doesn't touch | Listed in the drift section with a suggested sync change, not fixed by this change |
+
+After the archive, the validator no longer warns about the sections this change
+updated. Any it still warns about are the ones the drift section listed.
+
+> The check matches names only. A renamed or deleted class, function or state is
+> caught; a wrong arrow is not, unless the agent spots it while checking the code at
+> propose. If a diagram label is not code (a person, an external system), list it on a
+> `%% vsdd:not-code <names>` line inside that diagram.
+
+Commit the result like the changes before, or discard the whole drill:
+
+```bash
+git restore . && git clean -fd openspec/changes lib test
+```
 
 ---
 
