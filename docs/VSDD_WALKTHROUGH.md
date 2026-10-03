@@ -60,8 +60,8 @@ Start from the clean baseline: `git status` should show nothing to commit.
 from GitHub. Make it a shell alias for this session:
 
 ```bash
-alias vsdd-kit='uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.7 vsdd-kit'
-vsdd-kit --version                                   # vsdd-kit 0.3.7
+alias vsdd-kit='uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.8 vsdd-kit'
+vsdd-kit --version                                   # vsdd-kit 0.3.8
 ```
 
 The rest of this guide writes `vsdd-kit` for the command. `vsdd-kit guide` prints the runbook,
@@ -102,9 +102,9 @@ runbook your agent follows. You don't need to read it, but it's worth skimming o
 
 Open **this folder** in your AI coding tool and say:
 
-> Install VSDD into this project: run `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.7 vsdd-kit guide`
+> Install VSDD into this project: run `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.8 vsdd-kit guide`
 > and follow the runbook it prints. `KIT` is the folder printed by
-> `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.7 vsdd-kit path`.
+> `uvx --from git+https://github.com/joecrowley/vsdd-kit@v0.3.8 vsdd-kit path`.
 
 Or, with a clone:
 
@@ -339,11 +339,11 @@ Review checklist:
 | There is a `## Placement` table with **one row per diagram** in Before/After | The archive merge applies these rows and nothing else. The validator fails if a row and a section don't match |
 | **New flows go in their capability's file** (`Notes Update Flow` → `specs/book-notes/diagrams.md`, action `add`) | A diagram belongs to the capability whose behaviour it shows. Only cross-cutting diagrams, such as the end-to-end data flow, stay in `specs/architecture/diagrams.md`. Agents often get this wrong, so check it |
 | Any row that **adds or moves** a diagram into `specs/architecture/diagrams.md` has a 4th column, `Why here`, naming the capabilities it spans | The validator rejects it otherwise. Because this change creates `book-notes`, it also prints a **warning** for any such row: usually the diagram belongs in `specs/book-notes/diagrams.md`. Updates to existing architecture diagrams, like `ReadingListState Machine`, need no reason |
-| The Before State is a **verbatim** copy of the Source of Truth section | It's the baseline reviewers compare against. The validator checks this, and the archive refuses to merge if the Source of Truth changed since |
+| The Before State is a **verbatim** copy of the Source of Truth section, written by `python3 scripts/vsdd/seed_before.py add-book-notes` (since kit 0.3.8; look for "seeded Before State" in the agent's output) | It's the baseline reviewers compare against. The script copies it from the Placement rows, so it can't drift by a character; the validator checks it, and the archive refuses to merge if the Source of Truth changed since |
 | The After State keeps the **same stable name** (`ReadingListState Machine`) | The archive replaces sections by name. A renamed section would leave the old one orphaned |
 | The new diagram has a **new** stable name (`Notes Update Flow`) | It is added on archive, and the file is created if it doesn't exist yet |
 | Participants use the naming style of the code | They'll be traced against the code later |
-| It passes the validator | Run `python3 scripts/vsdd/validate_mermaid.py --render`. This also checks the Placement rows and the verbatim Before copy |
+| It passes the validator | Run `python3 scripts/vsdd/validate_mermaid.py --change add-book-notes --render`. It checks this change only: the Placement rows, the verbatim Before copy, and the diagrams render |
 
 If something is off, say so now, e.g. *"notes should be saved on blur, not with a Save
 button, so update the Notes Update Flow"*. Fixing a diagram costs far less than
@@ -368,9 +368,9 @@ fixing code.
 
   Either way, §6 turns it into a recorded lesson.
 - `tasks.md`: domain → data → presentation → tests. Because the gate is YES, the last
-  task group should include **"trace the After State against the code and record
-  Deviations, then run the validator"**. That comes from the `rules.tasks` entry in
-  `config.yaml`.
+  task group should include **"trace the After State against the code with
+  `python3 scripts/vsdd/validate_mermaid.py --trace add-book-notes`, and record any
+  Deviations"**. That comes from the `rules.tasks` entry in `config.yaml`.
 
 ### 5.5 Apply
 
@@ -378,7 +378,18 @@ fixing code.
 
 The agent works through `tasks.md`, ticking the checkboxes off. Before it declares
 the change done, it **checks the After State against the code**: every participant
-has to exist, in the layer the diagram shows.
+has to exist, in the layer the diagram shows. Since kit 0.3.8 one script run does the
+lookup, and the agent only reads code to confirm the call path. Run it yourself:
+
+```bash
+python3 scripts/vsdd/validate_mermaid.py --trace add-book-notes
+# trace 'Notes Update Flow': ApiBookRepository (lib/data/...), setNotes (lib/...), ...
+# OK: ... 0 problems
+```
+
+Each line lists the code-like names in one After diagram, with the file that declares
+each name first. A name no source file contains fails the run: the diagram promises
+something that wasn't built.
 
 **Invite a deviation**, to see how VSDD handles one. Part-way through, say:
 
@@ -638,8 +649,9 @@ python3 scripts/vsdd/install_overlay.py --check   # "VSDD overlay OK."
 
 Diagrams go stale when code changes without them: a hotfix, a rename in a change whose
 gate was NO, a hand edit. Every later change copies the stale diagram as its Before
-state, so the error travels. Since kit 0.3.7, two checks catch this. Try them with a
-rename that doesn't touch the diagrams:
+state, so the error travels. Since kit 0.3.7, two checks catch this; since 0.3.8 the
+second one runs as part of copying the Before State. Try them with a rename that
+doesn't touch the diagrams:
 
 ```bash
 grep -rl UpdateReadingStatus lib test | xargs sed -i '' 's/UpdateReadingStatus/ChangeReadingStatus/g'
@@ -661,7 +673,7 @@ In its `diagrams.md`, check:
 
 | Check | Expected |
 |---|---|
-| `## Before State` | Still says `UpdateReadingStatus`: it is a verbatim copy of the Source of Truth |
+| `## Before State` | Still says `UpdateReadingStatus`: it is a verbatim copy of the Source of Truth. When `seed_before.py` copied it, it printed `warning: drift in '<section>' ...: UpdateReadingStatus not found` |
 | `## After State` | Says `ChangeReadingStatus`: the agent checked the code before planning |
 | `## Source of Truth drift` | Lists the rename (diagram says / code does). It is a record only, and never merged |
 | A stale diagram the change doesn't touch | Listed in the drift section with a suggested sync change, not fixed by this change |
@@ -731,7 +743,7 @@ copy (`/Volumes/LacieStore/flutter/vsdd-kit/SETUP.md`) instead of a fresh clone.
 | The archive summary has no Diagrams line | Stock command or skill in use (overlay wiped) | `install_overlay.py --check`, then re-apply |
 | "Diagrams: no-op" with a YES gate | After State used `##` instead of `### <Stable Name>` | Fix the headings. The validator flags this |
 | The validator reports a missing or mismatched `## Placement` | A YES gate needs one Placement row per Before/After section | Add or fix the rows (see `docs/VSDD.md` §2) |
-| Archive says "Not merged: fix diagrams.md first" | The Source of Truth changed after the change was proposed, so a Before copy is no longer verbatim | Re-copy the Before section from the current file, adjust the After State, then archive again |
+| Archive says "Not merged: fix diagrams.md first" | The Source of Truth changed after the change was proposed, so a Before copy is no longer verbatim | Re-copy the Before with `python3 scripts/vsdd/seed_before.py <change>`, adjust the After State, then archive again |
 | A new capability's flow ended up in `specs/architecture/diagrams.md` | The agent skipped the ownership rule | Ask it to change the Placement row to `specs/<capability>/diagrams.md` before archiving |
 | Validator: "... goes into the architecture file: add a 4th column 'Why here'" | A Placement row adds or moves a diagram into `specs/architecture/diagrams.md` without a reason | Place it in `specs/<capability>/diagrams.md`, or fill in `Why here` with the capabilities it spans |
 | Validator `warning: this change creates <cap>, but ...` | A new capability's change still adds a diagram to the architecture file | Review the row. It usually belongs in the capability's own file. The warning doesn't fail the run |
